@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Game Room</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h2>จับคู่สำเร็จกับคู่สนทนา 🎮</h2>
+    <div class="game">
+      <p>เลือกของคุณ:</p>
+      <button class="move" data-move="rock">✊</button>
+      <button class="move" data-move="paper">🖐️</button>
+      <button class="move" data-move="scissors">✌️</button>
+      <p id="gameResult">รอผล...</p>
+    </div>
+
+    <div class="chat">
+      <div id="chatBox"></div>
+      <input id="message" placeholder="พิมพ์ข้อความ..." />
+    </div>
+
+    <button id="nextBtn">🔁 Next</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const room = new URLSearchParams(window.location.search).get("room");
+    const nickname = localStorage.getItem("nickname") || "คุณ";
+
+    const chatBox = document.getElementById("chatBox");
+    const messageInput = document.getElementById("message");
+
+    document.querySelectorAll(".move").forEach(btn => {
+      btn.onclick = () => {
+        socket.emit("playMove", { room, move: btn.dataset.move });
+        document.getElementById("gameResult").innerText = "คุณเลือก " + btn.textContent;
+      };
+    });
+
+    socket.on("gameResult", (res) => {
+      document.getElementById("gameResult").innerText = res;
+    });
+
+    messageInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    function sendMessage() {
+      const msg = messageInput.value;
+      if (!msg) return;
+      chatBox.innerHTML += `<div><b>${nickname}:</b> ${msg}</div>`;
+      socket.emit("chat", { room, message: msg });
+      messageInput.value = "";
+    }
+
+    socket.on("chat", ({ sender, message }) => {
+      chatBox.innerHTML += `<div><b>${sender}:</b> ${message}</div>`;
+    });
+
+    document.getElementById("nextBtn").onclick = () => {
+      socket.emit("joinQueue", { nickname });
+      document.getElementById("nextBtn").disabled = true;
+    };
+
+    socket.emit("setNickname", { nickname });
+  </script>
+</body>
+</html>
